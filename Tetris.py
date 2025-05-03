@@ -404,18 +404,19 @@ def get_max_score():
 
 
 class Move(object):
-    def __init__(self, piece, rating, directions):
+    def __init__(self, piece, rating, directions, grid_lockedpos):
         self.piece = piece
         self.rating = rating
         self.directions = directions
+        self.grid_lockedpos = grid_lockedpos
 
     def __iter__(self):
-        return iter((self.piece, self.rating, self.directions))
+        return iter((self.piece, self.rating, self.directions, self.grid_lockedpos))
 
 
 def display_ghost_piece(moves):
     for move in moves:
-        piece, score, directions = move
+        piece, score, directions, loc_pos = move
         display_ghost_piece_single(piece, directions)
 
 
@@ -435,9 +436,15 @@ def display_ghost_piece_single(piece, directions):
     print(" ".join(readable))
 
 
-def rate(piece):
+def rate_dellacherie(piece): #handtuned
     rating = - piece.y + eroded_piece_cells(piece) - row_transitions(piece) - column_transitions(piece) - 4 * holes(
         piece) - board_wells(piece)
+
+    return rating
+
+def rate_weights(piece, weights): #weights = list of 6 weights
+    rating = weights[0]*piece.y + weights[1]*eroded_piece_cells(piece) + weights[2]*row_transitions(piece) + weights[3]*column_transitions(piece) + weights[4]* holes(
+        piece) + weights[5]*board_wells(piece)
 
     return rating
 
@@ -496,18 +503,26 @@ def possible_moves(grid, piece, locked_pos):
     display_ghost_piece(moves)
     return moves
 
-
 def best_move(moves):  # returns best move
     best_move = max(moves, key=lambda move: move.rating)
     return best_move
 
+def new_grid(locked_pos, piece):
+    new_lockedpos=deepcopy(locked_pos)
+    positions=convert_shape_format(piece)
+    for pos in positions:
+        p = (pos[0], pos[1])
+        new_lockedpos[p] = piece.color
+    return new_lockedpos
 
 def drop(ghost_piece, directions, moves, locked_pos, grid):
     directions_down = []
     while valid_space(ghost_piece, grid):
         if check_collision(ghost_piece, locked_pos):
             temp = deepcopy(ghost_piece)
-            moves.append(Move(temp, rate(ghost_piece), deepcopy(directions) + deepcopy(directions_down)))
+            new_lockedpos = new_grid(locked_pos, temp)
+            moves.append(Move(temp, rate_dellacherie(ghost_piece), deepcopy(directions) + deepcopy(directions_down),new_lockedpos))
+            # moves.append(Move(temp, rate_dellacherie(ghost_piece), deepcopy(directions) + deepcopy(directions_down)))
             ghost_piece.y = 0
             return
         ghost_piece.y += 1
